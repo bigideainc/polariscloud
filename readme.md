@@ -287,7 +287,7 @@ source venv/bin/activate  # Linux/Mac
 python main.py
 
 # In separate terminal, run validator  
-python validators/main.py
+python main.py
 ```
 
 ### Resource Allocation
