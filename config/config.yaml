@@ -1,0 +1,17 @@
+network:
+  port: 8080
+  host: "0.0.0.0"
+
+security:
+  secret_key: "your-secret-key-here"
+  token_expiry: 3600
+
+docker:
+  base_image: "ubuntu:latest"
+  container_prefix: "polarise-"
+  default_memory: "1g"
+  default_cpu_count: 1
+
+logging:
+  level: "INFO"
+  file: "polarise.log"

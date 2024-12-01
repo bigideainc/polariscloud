@@ -1,0 +1,21 @@
+validator:
+  challenges:
+    interval: 300  # 5 minutes
+    types:
+      - compute
+      - memory
+      - network
+
+  scoring:
+    weights:
+      resource_compliance: 0.4
+      availability: 0.3
+      performance: 0.3
+
+  verification:
+    timeout: 30
+    retry_count: 3
+
+  rewards:
+    base_reward: 1.0
+    penalty_factor: 0.5

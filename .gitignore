@@ -1,0 +1,47 @@
+# Python virtual environment
+venv/
+.env/
+ENV/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Local configuration
+config/local.yaml
+config/local.yml
+
+# Docker
+.docker/
+
+# Test cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node modules (if using any JavaScript)
+node_modules/
+
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Project specific
+tmp/
+allocation_key

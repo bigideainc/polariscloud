@@ -1,0 +1,21 @@
+miner:
+  pow:
+    difficulty: 4
+    timeout: 30
+
+  resources:
+    max_containers: 10
+    max_memory_per_container: "4g"
+    max_cpu_per_container: 4
+    
+  network:
+    port: 8080
+    endpoints:
+      - /allocate
+      - /deallocate
+      - /status
+
+  security:
+    ssh_port_range:
+      start: 49152
+      end: 65535
