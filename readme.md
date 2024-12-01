@@ -168,7 +168,7 @@ Response: List of active containers and their states
 ### Installation Steps
 ```bash
 # Clone repository
-git clone https://github.com/your-org/polarise-compute-subnet
+git clone https://github.com/BANADDA/polarise-compute-subnet
 
 # Create virtual environment
 python -m venv venv
