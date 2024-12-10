@@ -1,6 +1,6 @@
 import logging
 import os
-import secrets
+import random
 import string
 import time
 from io import BytesIO
@@ -17,9 +17,9 @@ class ContainerManager:
         self.image_name = "polarise-compute-image"
         self.container_name = "polarise-compute-container"
         
-    def generate_password(self, length: int = 16) -> str:
-        alphabet = string.ascii_letters + string.digits
-        return ''.join(secrets.choice(alphabet) for _ in range(length))
+    def generate_password(self, length: int = 5) -> str:
+        # Generate a simple 5-digit password
+        return ''.join(str(random.randint(0, 9)) for _ in range(length))
 
     def run_container(self, resources: Dict[str, Any]) -> Dict[str, Any]:
         try:
