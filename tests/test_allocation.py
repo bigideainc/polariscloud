@@ -1,6 +1,5 @@
 # tests/test_allocation.py
 import json
-import time
 
 import requests
 
@@ -19,25 +18,39 @@ def test_allocation():
             json=data,
             headers={'Content-Type': 'application/json'}
         )
-        
+
         print("\nResponse Status Code:", response.status_code)
         print("\nResponse Headers:")
         for header, value in response.headers.items():
             print(f"{header}: {value}")
-            
-        print("\nResponse Body:")
+
+        # Attempt to parse JSON response
         result = response.json()
+        print("\nResponse Body:")
         print(json.dumps(result, indent=2))
-        
-        if result["status"] == "success":
+
+        # Check if the request was successful
+        if result.get("status") == "success":
             print("\nSSH Connection Details:")
-            print(f"Host: {result['host']}")
-            print(f"Port: {result['ssh_port']}")
-            print(f"Username: root")
-            print(f"Password: {result['password']}")
-            print("\nTo connect:")
-            print(f"ssh root@{result['host']} -p {result['ssh_port']}")
-        
+            host = result.get("host", "Unknown")
+            username = result.get("username", "root")
+            password = result.get("password", "Unknown")
+            ports = result.get("ports", {})
+
+            # Attempt to extract the SSH port (commonly bound to "22/tcp")
+            ssh_port = ports.get("22/tcp")
+            if ssh_port:
+                print(f"Host: {host}")
+                print(f"Port: {ssh_port}")
+                print(f"Username: {username}")
+                print(f"Password: {password}")
+                print("\nTo connect:")
+                print(f"ssh {username}@{host} -p {ssh_port}")
+            else:
+                print("No SSH port found in the ports dictionary.")
+        else:
+            print("Allocation failed or returned an unexpected status.")
+
     except requests.exceptions.RequestException as e:
         print(f"Request failed: {e}")
     except json.JSONDecodeError as e:
