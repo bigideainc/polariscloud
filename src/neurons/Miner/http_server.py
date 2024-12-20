@@ -1,4 +1,3 @@
-# http_server.py
 import json
 import logging
 import threading
@@ -6,7 +5,14 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
+logger.propagate = False  # Prevent duplicate logs
 
 class RequestLogger:
     """Utility class to log request details with timing"""
@@ -14,15 +20,18 @@ class RequestLogger:
     def log_request(handler, request_data=None):
         client_address = handler.client_address[0]
         request_line = f"{handler.command} {handler.path}"
-        logger.info(f"[←] Received request from {client_address}: {request_line}")
+        logger.info(f"Request from {client_address}: {request_line}")
         if request_data:
-            logger.info(f"[←] Request data: {json.dumps(request_data, indent=2)}")
+            request_str = json.dumps(request_data, indent=2)
+            logger.info(f"Request data: {request_str}")
 
     @staticmethod
     def log_response(handler, response_data, status_code, duration):
         client_address = handler.client_address[0]
-        logger.info(f"[→] Sending response to {client_address} (Status: {status_code}, Duration: {duration:.3f}s)")
-        logger.info(f"[→] Response data: {json.dumps(response_data, indent=2)}")
+        logger.info(f"Response to {client_address} | Status: {status_code} | Time: {duration:.3f}s")
+        if response_data:
+            response_str = json.dumps(response_data, indent=2)
+            logger.info(f"Response data: {response_str}")
 
 class ComputeRequestHandler(BaseHTTPRequestHandler):
     def _send_json_response(self, response_data: Dict[str, Any], status_code: int = 200):
@@ -44,24 +53,24 @@ class ComputeRequestHandler(BaseHTTPRequestHandler):
             RequestLogger.log_request(self, request)
             
             if self.path == '/allocate':
-                logger.info(f"[↓] Processing allocation request...")
+                logger.info("Processing allocation request")
                 response = self.server.allocator.allocate_resources(request)
                 self._send_json_response(response)
             else:
-                logger.warning(f"[!] Invalid endpoint requested: {self.path}")
+                logger.warning(f"Invalid endpoint: {self.path}")
                 self._send_json_response(
                     {"status": "error", "message": "Invalid endpoint"},
                     status_code=404
                 )
                 
         except json.JSONDecodeError as e:
-            logger.error(f"[!] Invalid JSON in request: {str(e)}")
+            logger.error(f"Invalid JSON in request: {str(e)}")
             self._send_json_response(
                 {"status": "error", "message": "Invalid JSON format"},
                 status_code=400
             )
         except Exception as e:
-            logger.error(f"[!] Request handling failed: {str(e)}", exc_info=True)
+            logger.error(f"Request failed: {str(e)}", exc_info=True)
             self._send_json_response(
                 {"status": "error", "message": str(e)},
                 status_code=500
@@ -73,7 +82,7 @@ class ComputeRequestHandler(BaseHTTPRequestHandler):
             RequestLogger.log_request(self)
             
             if self.path == '/containers':
-                logger.info(f"[↓] Fetching active containers...")
+                logger.info("Fetching active containers")
                 containers = self.server.allocator.get_active_containers()
                 self._send_json_response({
                     "status": "success",
@@ -86,17 +95,21 @@ class ComputeRequestHandler(BaseHTTPRequestHandler):
                     "timestamp": time.time()
                 })
             else:
-                logger.warning(f"[!] Invalid endpoint requested: {self.path}")
+                logger.warning(f"Invalid endpoint: {self.path}")
                 self._send_json_response(
                     {"status": "error", "message": "Endpoint not found"},
                     status_code=404
                 )
         except Exception as e:
-            logger.error(f"[!] GET request handling failed: {str(e)}", exc_info=True)
+            logger.error(f"GET request failed: {str(e)}", exc_info=True)
             self._send_json_response(
                 {"status": "error", "message": str(e)},
                 status_code=500
             )
+
+    def log_message(self, format, *args):
+        """Override to prevent default access logging"""
+        pass
 
 class ComputeServer:
     def __init__(self, port: int = 8080, allocator=None):
@@ -111,18 +124,18 @@ class ComputeServer:
             self.server.allocator = self.allocator
             self.is_running = True
             
-            logger.info(f"[+] Compute server starting on port {self.port}")
+            logger.info(f"Starting compute server on port {self.port}")
             
             # Start server in a daemon thread
             server_thread = threading.Thread(target=self._run_server)
             server_thread.daemon = True
             server_thread.start()
             
-            logger.info(f"[+] Server successfully started and ready to accept connections")
+            logger.info("Server started successfully")
             return True
             
         except Exception as e:
-            logger.error(f"[-] Failed to start server: {str(e)}", exc_info=True)
+            logger.error(f"Failed to start server: {str(e)}", exc_info=True)
             self.is_running = False
             return False
             
@@ -131,13 +144,13 @@ class ComputeServer:
             while self.is_running:
                 self.server.handle_request()
         except Exception as e:
-            logger.error(f"[-] Server loop error: {str(e)}", exc_info=True)
+            logger.error(f"Server error: {str(e)}", exc_info=True)
             self.is_running = False
             
     def stop(self):
-        logger.info("[-] Initiating server shutdown...")
+        logger.info("Shutting down server")
         self.is_running = False
         if self.server:
             self.server.shutdown()
             self.server.server_close()
-        logger.info("[-] Server shutdown complete")
+        logger.info("Server shutdown complete")
