@@ -1,10 +1,15 @@
-# tests/test_validator.py
 import json
+import logging
 import os
 import sys
 import time
+from typing import Dict, Optional
 
 import requests
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -13,82 +18,116 @@ from src.neurons.Validator.scoring import ScoringSystem
 from src.neurons.Validator.verification import Verifier
 
 
-def get_latest_container():
-    """First create a container if none exists"""
-    test_data = {
-        "memory": "2g",
-        "cpu_count": 2
-    }
-    
-    # Create a new container
-    response = requests.post(
-        'http://localhost:8080/allocate',
-        json=test_data,
-        headers={'Content-Type': 'application/json'}
-    )
-    
-    if response.status_code == 200:
-        result = response.json()
-        if result["status"] == "success":
-            return result["container_id"]
-    return None
+class ValidatorTester:
+    def __init__(self):
+        self.base_url = 'http://localhost:8080'
+        self.verifier = Verifier()
+        self.scoring = ScoringSystem()
+        self.challenge_gen = ChallengeGenerator()
 
-def test_validator_flow():
-    print("\nTesting Validator Components...")
-    
-    # Initialize components
-    verifier = Verifier()
-    scoring = ScoringSystem()
-    challenge_gen = ChallengeGenerator()
+    def allocate_container(self) -> Optional[str]:
+        """Allocate a new container for testing"""
+        test_data = {
+            "memory": "2g",
+            "cpu_count": 2
+        }
 
-    # 1. Get active container details
-    print("\n1. Getting container details...")
-    container_id = get_latest_container()
-    if container_id:
-        print(f"Found container: {container_id}")
-    else:
-        print("No container found. Creating new one...")
-        container_id = get_latest_container()
+        try:
+            response = requests.post(
+                f'{self.base_url}/allocate',
+                json=test_data,
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            if result.get("status") == "success":
+                logger.info(f"Container allocated: {result['container_id']}")
+                return result["container_id"]
+            
+            logger.error(f"Container allocation failed: {result.get('message', 'Unknown error')}")
+            return None
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to allocate container: {str(e)}")
+            return None
+
+    def send_challenge(self, container_id: str, challenge: Dict) -> Optional[Dict]:
+        """Send a challenge to a container"""
+        try:
+            response = requests.put(
+                f'{self.base_url}/challenge/{container_id}',
+                json=challenge,
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to send challenge: {str(e)}")
+            return None
+
+    def run_validation_test(self) -> bool:
+        """Run a complete validation test cycle"""
+        logger.info("Starting validation test cycle...")
+
+        # Step 1: Allocate container
+        container_id = self.allocate_container()
         if not container_id:
-            print("Failed to create container")
-            return
+            logger.error("Container allocation failed")
+            return False
 
-    # Wait for container to fully start
-    time.sleep(5)
+        # Wait for container to initialize
+        logger.info("Waiting for container initialization...")
+        time.sleep(5)
 
-    # 2. Generate challenge
-    print("\n2. Generating challenge...")
-    challenge = challenge_gen.generate_challenge(container_id)
-    print(f"Challenge generated: {json.dumps(challenge, indent=2)}")
+        try:
+            # Step 2: Generate and send challenge
+            logger.info("Generating challenge...")
+            challenge = self.challenge_gen.generate_challenge(container_id)
+            logger.info(f"Challenge generated: {json.dumps(challenge, indent=2)}")
 
-    # 3. Send challenge to container
-    print("\n3. Sending challenge to container...")
-    try:
-        response = requests.put(
-            f'http://localhost:8080/challenge/{container_id}',
-            json=challenge,
-            headers={'Content-Type': 'application/json'}
-        )
-        result = response.json()
-        print(f"Challenge response: {json.dumps(result, indent=2)}")
+            logger.info("Sending challenge to container...")
+            result = self.send_challenge(container_id, challenge)
+            if not result:
+                logger.error("Failed to get challenge response")
+                return False
 
-        if result["status"] == "error":
-            print(f"Error from server: {result['message']}")
-            return
+            if result.get("status") == "error":
+                logger.error(f"Error from container: {result.get('message')}")
+                return False
 
-    except Exception as e:
-        print(f"Error sending challenge: {e}")
-        return
+            # Step 3: Verify response
+            logger.info("Verifying challenge response...")
+            verification_result = self.verifier.verify_resource_usage(container_id, result)
+            logger.info(f"Verification result: {verification_result}")
 
-    # 4. Verify response
-    print("\n4. Verifying response...")
-    verification_result = verifier.verify_resource_usage(container_id, result)
-    print(f"Verification result: {verification_result}")
+            # Step 4: Calculate score
+            logger.info("Calculating performance score...")
+            score = self.scoring.calculate_score(container_id, result)
+            logger.info(f"Final score: {score}")
 
-    # 5. Calculate score
-    print("\n5. Calculating score...")
-    score = scoring.calculate_score(container_id, result)
-    print(f"Final score: {score}")
+            return verification_result.success and score > 0
+
+        except Exception as e:
+            logger.error(f"Validation test failed: {str(e)}")
+            return False
+
+def main():
+    """Main test execution function"""
+    logger.info("Starting validator component tests...")
+    
+    tester = ValidatorTester()
+    success = tester.run_validation_test()
+    
+    if success:
+        logger.info("Validator test completed successfully")
+        sys.exit(0)
+    else:
+        logger.error("Validator test failed")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    test_validator_flow()
+    main()
