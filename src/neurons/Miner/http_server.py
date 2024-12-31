@@ -34,14 +34,56 @@ class RequestLogger:
             logger.info(f"Response data: {response_str}")
 
 class ComputeRequestHandler(BaseHTTPRequestHandler):
-    def _send_json_response(self, response_data: Dict[str, Any], status_code: int = 200):
+    def _send_json_response(self, response_data: Dict[str, Any], status_code: int = 200, send_body: bool = True):
         response_time = time.time() - self.request_start_time
         RequestLogger.log_response(self, response_data, status_code, response_time)
         
         self.send_response(status_code)
         self.send_header('Content-type', 'application/json')
+        self.send_header('Content-Length', len(json.dumps(response_data).encode()))
         self.end_headers()
-        self.wfile.write(json.dumps(response_data).encode())
+        
+        if send_body:
+            self.wfile.write(json.dumps(response_data).encode())
+
+    def do_HEAD(self):
+        """Handle HEAD requests."""
+        self.request_start_time = time.time()
+        try:
+            RequestLogger.log_request(self)
+            
+            if self.path == '/allocate':
+                # Respond with headers only for allocation endpoint
+                self._send_json_response(
+                    {"status": "success", "message": "Allocation endpoint"},
+                    send_body=False
+                )
+            elif self.path == '/containers':
+                # Respond with headers only for containers endpoint
+                self._send_json_response(
+                    {"status": "success", "message": "Containers endpoint"},
+                    send_body=False
+                )
+            elif self.path == '/health':
+                # Respond with headers only for health endpoint
+                self._send_json_response(
+                    {"status": "success", "message": "Health endpoint"},
+                    send_body=False
+                )
+            else:
+                # Respond with headers for invalid endpoint
+                self._send_json_response(
+                    {"status": "error", "message": "Endpoint not found"},
+                    status_code=404,
+                    send_body=False
+                )
+        except Exception as e:
+            logger.error(f"HEAD request failed: {str(e)}", exc_info=True)
+            self._send_json_response(
+                {"status": "error", "message": str(e)},
+                status_code=500,
+                send_body=False
+            )
 
     def do_POST(self):
         self.request_start_time = time.time()

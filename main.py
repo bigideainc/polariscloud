@@ -1,4 +1,5 @@
 # main.py
+
 import os
 import signal
 import sys
@@ -13,11 +14,12 @@ from src.utils.logging import setup_logging
 
 @contextmanager
 def graceful_shutdown(server, logger):
+    """Context manager for graceful shutdown handling."""
     def handle_shutdown(signum, frame):
         logger.info(f"Received signal {signum}. Initiating graceful shutdown...")
         server.stop()
         sys.exit(0)
-        
+    
     # Register signal handlers
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
